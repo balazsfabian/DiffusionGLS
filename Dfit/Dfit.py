@@ -313,6 +313,11 @@ class Dcov():
         self.tmax = tmax
         self.d2max = d2max
         self.nitmax = nitmax   
+        self.tmin = tmin
+        self.tmax = tmax
+        self.d2max = d2max
+        self.nitmax = nitmax
+        self._isarray = False   # Flag for file or array
 
         if imgfmt not in ['pdf','png']:
             raise TypeError("Error! Choose 'pdf' or 'png' as output format.")
@@ -320,10 +325,19 @@ class Dcov():
         self.fout = fout
 
         if self.multi:
-            self.zs = [np.loadtxt(f).T for f in self.fz]
+            # Read file or use the array
+            if isinstance(self.fz[0], np.ndarray):
+                self.zs = [arr.T for arr in self.fz]
+                self._isarray = True
+            else:
+                self.zs = [np.loadtxt(f).T for f in self.fz]
             self.z = self.zs[0]  # This is only to determine ndim and n
         else:
-            self.z = np.loadtxt(self.fz).T # read in timeseries (rows) for each dimensions (columns)
+            if isinstance(self.fz, np.ndarray):
+                self.z = self.fz.T # read in timeseries (rows) for each dimensions (columns)
+                self._isarray = True
+            else:
+                self.z = np.loadtxt(self.fz).T # read in timeseries (rows) for each dimensions (columns)
 
         if len(self.z.shape) > 1: # 2D data or more
             self.ndim = self.z.shape[0] # number of dimensions
@@ -338,6 +352,7 @@ class Dcov():
             self.nperseg = self.n # all molecules from trajectory with same length
         else:
             self.nseg = int((self.n+1) / (100. * self.tmax)) # number of segments
+            print("Maximum allowed number of segments = {}".format(self.nseg))
             if nseg != None: # given nseg
                 if nseg > self.nseg: # compare if given nseg is over max nseg
                     print("Warning, too many segments chosen, falling back to nseg = {}".format(self.nseg))
@@ -445,7 +460,10 @@ class Dcov():
         with open('{}.dat'.format(self.fout),'w') as g:
             g.write("DIFFUSION COEFFICIENT ESTIMATE\n")
             g.write("INPUT:\n")
-            g.write("Trajectory: {}\n".format(self.fz))
+            if self._isarray:
+                g.write("Trajectory: {}\n".format("internal array"))
+            else:
+                g.write("Trajectory: {}\n".format(self.fz))
             g.write("Number of dimensions : {}\n".format(self.ndim))
             g.write("Min/max timestep: {}/{}\n".format(self.tmin,self.tmax))
             g.write("Number of segments: {}\n".format(self.nseg))
